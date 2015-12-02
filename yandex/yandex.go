@@ -68,8 +68,8 @@ func init() {
 type Fs struct {
 	name       string
 	yd         *yandex.Client // client for rest api
-	root       string
-	disk_root  string
+	root       string //root path
+	disk_root  string //root path with "disk:/" container name
 	mkdircache map[string]int
 }
 
@@ -245,16 +245,17 @@ func (f *Fs) NewFsObject(remote string) fs.Object {
 //
 // May return nil if an error occurred
 func (f *Fs) newFsObjectWithInfo(remote string, info *yandex.ResourceInfoResponse) fs.Object {
-	o := &Object{
-		fs:     f,
-		remote: remote,
-		item:   *info,
-	}
 	if info != nil {
+		o := &Object{
+			fs:     f,
+			remote: remote,
+			item:   *info,
+		}
 		o.setMetaData(info)
+		//TODO we have received all metadata in the file list may be no need to call readMetaData		
+		return o
 	}
-	//TODO we have received all metadata in the file list may be no need to call readMetaData
-	return o
+	return nil
 }
 
 // setMetaData sets the fs data from a storage.Object
@@ -297,6 +298,7 @@ func (f *Fs) Put(in io.Reader, remote string, modTime time.Time, size int64) (fs
 		fs:     f,
 		remote: remote,
 		bytes:  uint64(size),
+		modTime: modTime,
 	}
 	//TODO maybe read metadata after upload to check if file uploaded successfully
 	return o, o.Update(in, modTime, size)
@@ -304,7 +306,7 @@ func (f *Fs) Put(in io.Reader, remote string, modTime time.Time, size int64) (fs
 
 // Mkdir creates the container if it doesn't exist
 func (f *Fs) Mkdir() error {
-	f.mkdircache = MkDirFullPathCached(f.yd, f.root, f.mkdircache)
+	f.mkdircache = MkDirFullPathCached(f.yd, f.disk_root, f.mkdircache)
 	return nil
 }
 
@@ -312,10 +314,7 @@ func (f *Fs) Mkdir() error {
 //
 // Returns an error if it isn't empty
 func (f *Fs) Rmdir() error {
-
-	//TODO not implemented
-
-	return nil
+	return f.yd.Delete(f.disk_root, true)
 }
 
 // Precision return the precision of this Fs
