@@ -21,8 +21,8 @@ import (
 
 //oAuth
 const (
-	rcloneClientID     = "4515bc338b134492aedbc16efde1c3af" //TODO: replace with rclone ID
-	rcloneClientSecret = "95b36c4a0345468ea35ed383c2944570" //TODO: replace with rclone Secret
+	rcloneClientID     = "ac39b43b9eba4cae8ffb788c06d816a8"
+	rcloneClientSecret = "k8jKzZnMmM+Wx5jAksPAwYKPgImOiN+FhNKD09KBg9A="
 )
 
 //mkdir cache states
@@ -38,8 +38,8 @@ var (
 			TokenURL: "https://oauth.yandex.com/token",     //same as https://oauth.yandex.ru/token
 		},
 		ClientID:     rcloneClientID,
-		ClientSecret: rcloneClientSecret,
-		RedirectURL:  oauthutil.RedirectLocalhostURL,
+		ClientSecret: fs.Reveal(rcloneClientSecret),
+		RedirectURL:  oauthutil.RedirectURL,
 	}
 )
 
@@ -68,8 +68,8 @@ func init() {
 type Fs struct {
 	name       string
 	yd         *yandex.Client // client for rest api
-	root       string //root path
-	disk_root  string //root path with "disk:/" container name
+	root       string         //root path
+	disk_root  string         //root path with "disk:/" container name
 	mkdircache map[string]int
 }
 
@@ -252,7 +252,7 @@ func (f *Fs) newFsObjectWithInfo(remote string, info *yandex.ResourceInfoRespons
 			item:   *info,
 		}
 		o.setMetaData(info)
-		//TODO we have received all metadata in the file list may be no need to call readMetaData		
+		//TODO we have received all metadata in the file list may be no need to call readMetaData
 		return o
 	}
 	return nil
@@ -295,9 +295,9 @@ func (f *Fs) ListDir() fs.DirChan {
 // The new object may have been created if an error is returned
 func (f *Fs) Put(in io.Reader, remote string, modTime time.Time, size int64) (fs.Object, error) {
 	o := &Object{
-		fs:     f,
-		remote: remote,
-		bytes:  uint64(size),
+		fs:      f,
+		remote:  remote,
+		bytes:   uint64(size),
 		modTime: modTime,
 	}
 	//TODO maybe read metadata after upload to check if file uploaded successfully
