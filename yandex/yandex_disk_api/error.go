@@ -56,3 +56,28 @@ func CheckAPIError(resp *http.Response) error {
 
 	return errorResponse
 }
+
+// ProccessErrorString tries to represent data passed as
+// an ErrorResponse object.
+func ProccessErrorString(data string) (*ErrorResponse, error) {
+	var errorResponse ErrorResponse
+	if err := json.Unmarshal([]byte(data), &errorResponse); err == nil {
+		// ok
+	} else if err != nil {
+		return nil, err
+	}
+
+	// TODO: check if there is any trash data after JSON and crash if there is.
+
+	return &errorResponse, nil
+}
+
+//Parse API error
+func (c *Client) ParseAPIError(jsonErr string) (error, string) { //ErrorName
+	errorResponse, err := ProccessErrorString(jsonErr)
+	if err != nil {
+		return err, err.Error()
+	}
+
+	return nil, errorResponse.ErrorName
+}

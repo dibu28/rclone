@@ -25,10 +25,6 @@ const (
 	rcloneClientSecret = "k8jKzZnMmM+Wx5jAksPAwYKPgImOiN+FhNKD09KBg9A="
 )
 
-//mkdir cache states
-const mkdirCreate = 1
-const mkdirExist = 2
-
 // Globals
 var (
 	// Description of how to auth for this app
@@ -130,9 +126,6 @@ func NewFs(name, root string) (fs.Fs, error) {
 	}
 
 	f.setRoot(root)
-
-	//create map to cache paths
-	f.mkdircache = make(map[string]int)
 
 	//TODO limiter
 	// if f.root != "" {
@@ -306,8 +299,7 @@ func (f *Fs) Put(in io.Reader, remote string, modTime time.Time, size int64) (fs
 
 // Mkdir creates the container if it doesn't exist
 func (f *Fs) Mkdir() error {
-	f.mkdircache = MkDirFullPathCached(f.yd, f.disk_root, f.mkdircache)
-	return nil
+	return MkDirFullPath(f.yd, f.disk_root)
 }
 
 // Rmdir deletes the container
@@ -402,7 +394,7 @@ func (o *Object) remotePath() string {
 func (o *Object) Update(in io.Reader, modTime time.Time, size int64) error {
 	remote := o.remotePath()
 	//create full path to file before upload.
-	o.fs.mkdircache = MkDirFullPathCached(o.fs.yd, remote, o.fs.mkdircache)
+	MkDirFullPath(o.fs.yd, remote)
 	//upload file
 	overwrite := true //overwrite existing file
 	return o.fs.yd.Upload(in, remote, overwrite)
@@ -411,39 +403,45 @@ func (o *Object) Update(in io.Reader, modTime time.Time, size int64) error {
 // utility funcs-------------------------------------------------------------------
 
 // execute mkdir
-func MkDirCached(client *yandex.Client, path string, mkdircache map[string]int) {
-	if err, statusCode := client.Mkdir(path); err != nil {
+func MkDirExecute(client *yandex.Client, path string) (error, int, string) {
+	if err, statusCode, jsonErrorString := client.Mkdir(path); err != nil {
 		if statusCode == 409 { // dir already exist
-			mkdircache[path] = mkdirExist
+			return err, statusCode, jsonErrorString
 		} else {
 			log.Fatalf("Failed to create folder: %v", err)
+			return err, statusCode, jsonErrorString
 		}
 	} else {
 		if statusCode == 201 { // dir was created
-			mkdircache[path] = mkdirExist
+			return err, statusCode, jsonErrorString
 		}
 	}
+	return nil, 0, ""
 }
 
-//Creates Each Directory in the path if needed. But only send request once and cache
-// paths of created or existing directories.
-//Check if some directories need to be created and cache them in the map
-func MkDirFullPathCached(client *yandex.Client, path string, mkdircache map[string]int) map[string]int {
+//Creates Each Directory in the path if needed. Send request once for every directory in the path.
+func MkDirFullPath(client *yandex.Client, path string) error {
 	//trim filename from path
 	dirString := strings.TrimSuffix(path, filepath.Base(path))
 	//trim "disk:/" from path
 	dirString = strings.TrimPrefix(dirString, "disk:/")
-	dirs := strings.Split(dirString, "/") //path separator /
-	var mkdirpath string = "/"            //path separator /
-	for _, element := range dirs {
-		if element != "" {
-			mkdirpath += element + "/" //path separator /
-			if mkdircache[mkdirpath] != mkdirExist {
-				MkDirCached(client, mkdirpath, mkdircache)
+
+	//1 Try to create directory first
+	if err, _, jsonErrorString := MkDirExecute(client, dirString); err != nil {
+		_, er2 := client.ParseAPIError(jsonErrorString)
+		if er2 != "DiskPathPointsToExistentDirectoryError" {
+			//2 if it fails then create all directories in the path from root.
+			dirs := strings.Split(dirString, "/") //path separator /
+			var mkdirpath string = "/"            //path separator /
+			for _, element := range dirs {
+				if element != "" {
+					mkdirpath += element + "/" //path separator /
+					MkDirExecute(client, mkdirpath)
+				}
 			}
 		}
 	}
-	return mkdircache
+	return nil
 }
 
 // Check the interfaces are satisfied
