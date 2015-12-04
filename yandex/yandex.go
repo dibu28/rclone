@@ -71,12 +71,12 @@ type Fs struct {
 
 // Object describes a swift object
 type Object struct {
-	fs      *Fs                         // what this object is part of
-	remote  string                      // The remote path
-	md5sum  string                      // The MD5Sum of the object
-	bytes   uint64                      // Bytes in the object
-	modTime time.Time                   // Modified time of the object
-	item    yandex.ResourceInfoResponse // file metadata from yandex disk object
+	fs      *Fs       // what this object is part of
+	remote  string    // The remote path
+	md5sum  string    // The MD5Sum of the object
+	bytes   uint64    // Bytes in the object
+	modTime time.Time // Modified time of the object
+	//item    yandex.ResourceInfoResponse // file metadata from yandex disk object
 }
 
 // ------------------------------------------------------------
@@ -238,17 +238,20 @@ func (f *Fs) NewFsObject(remote string) fs.Object {
 //
 // May return nil if an error occurred
 func (f *Fs) newFsObjectWithInfo(remote string, info *yandex.ResourceInfoResponse) fs.Object {
-	if info != nil {
-		o := &Object{
-			fs:     f,
-			remote: remote,
-			item:   *info,
-		}
-		o.setMetaData(info)
-		//TODO we have received all metadata in the file list may be no need to call readMetaData
-		return o
+	o := &Object{
+		fs:     f,
+		remote: remote,
 	}
-	return nil
+	if info != nil {
+		o.setMetaData(info)
+	} else {
+		err := o.readMetaData()
+		if err != nil {
+			fs.ErrorLog(f, "Couldn't get object metadata: %s", err)
+			return nil
+		}
+	}
+	return o
 }
 
 // setMetaData sets the fs data from a storage.Object
@@ -265,7 +268,13 @@ func (o *Object) setMetaData(info *yandex.ResourceInfoResponse) {
 
 // readMetaData gets the info if it hasn't already been fetched
 func (o *Object) readMetaData() (err error) {
-	//TODO we have received all metadata in the file list may be no need to query it again
+	//request meta info
+	var opt2 yandex.ResourceInfoRequestOptions
+	if ResourceInfoResponse, err := o.fs.yd.NewResourceInfoRequest(o.remotePath(), opt2).Exec(); err != nil {
+		return err
+	} else {
+		o.setMetaData(ResourceInfoResponse)
+	}
 	return nil
 }
 
