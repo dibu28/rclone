@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -127,28 +128,29 @@ func NewFs(name, root string) (fs.Fs, error) {
 
 	f.setRoot(root)
 
-	//TODO limiter
-	// if f.root != "" {
-	// 	f.root += "/"
-	// 	fs.Log("root2: ", f.root)
-	// 	// Check to see if the object exists
-	// 	//_, err = f.svc.Objects.Get(bucket, directory).Do()
-	// 	//if err == nil {
-	// 		remote := path.Base(root)
-	// 		fs.Log("remote: ", remote)
-	// 		f.root = path.Dir(root)
-	// 		fs.Log("root3: ", f.root)
-	// 		if f.root == "." {
-	// 			f.root = ""
-	// 		} else {
-	// 			f.root += "/"
-	// 		}
-	// 		fs.Log("root5: ", f.root)
-	// 		obj := f.NewFsObject(remote) //remote
-	// 		// return a Fs Limited to this object
-	// 		return fs.NewLimited(f, obj), nil
-	// 	//}
-	// }
+	//FIXME limited fs
+	// Check to see if the object exists and is a file
+	//request object meta info
+	var opt2 yandex.ResourceInfoRequestOptions
+	if ResourceInfoResponse, err := yandexDisk.NewResourceInfoRequest(root, opt2).Exec(); err != nil {
+		//return err
+	} else {
+		fmt.Println("root +++3", root, ResourceInfoResponse.Resource_type)
+		if ResourceInfoResponse.Resource_type == "file" {
+			//limited fs
+			remote := path.Base(root) //root
+			fmt.Println("remote +++2", remote)
+			// f.root = path.Dir(directory)
+			// if f.root == "." {
+			// 	f.root = ""
+			// } else {
+			// 	f.root += "/"
+			// }
+			obj := f.newFsObjectWithInfo(remote, ResourceInfoResponse)
+			// return a Fs Limited to this object
+			return fs.NewLimited(f, obj), nil
+		}
+	}
 
 	return f, nil
 }
