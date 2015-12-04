@@ -247,7 +247,7 @@ func (f *Fs) newFsObjectWithInfo(remote string, info *yandex.ResourceInfoRespons
 	} else {
 		err := o.readMetaData()
 		if err != nil {
-			fs.ErrorLog(f, "Couldn't get object metadata: %s", err)
+			fs.ErrorLog(f, "Couldn't get object '%s' metadata: %s", o.remotePath(), err)
 			return nil
 		}
 	}
@@ -406,7 +406,14 @@ func (o *Object) Update(in io.Reader, modTime time.Time, size int64) error {
 	MkDirFullPath(o.fs.yd, remote)
 	//upload file
 	overwrite := true //overwrite existing file
-	return o.fs.yd.Upload(in, remote, overwrite)
+	err := o.fs.yd.Upload(in, remote, overwrite)
+	if err == nil {
+		//if file uploaded sucessfuly then return metadata
+		o.bytes = uint64(size)
+		o.modTime = modTime
+		o.md5sum = "" // according to unit tests after put the md5 is empty.
+	}
+	return err
 }
 
 // utility funcs-------------------------------------------------------------------
