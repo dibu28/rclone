@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	yandex "./yandex_disk_api"
+	yandex "github.com/dibu28/yandex/api"
 	"github.com/ncw/rclone/fs"
 	"github.com/ncw/rclone/oauthutil"
 	"golang.org/x/oauth2"
@@ -135,17 +135,11 @@ func NewFs(name, root string) (fs.Fs, error) {
 	if ResourceInfoResponse, err := yandexDisk.NewResourceInfoRequest(root, opt2).Exec(); err != nil {
 		//return err
 	} else {
-		fmt.Println("root +++3", root, ResourceInfoResponse.Resource_type)
 		if ResourceInfoResponse.Resource_type == "file" {
 			//limited fs
-			remote := path.Base(root) //root
-			fmt.Println("remote +++2", remote)
-			// f.root = path.Dir(directory)
-			// if f.root == "." {
-			// 	f.root = ""
-			// } else {
-			// 	f.root += "/"
-			// }
+			remote := path.Base(root)
+			f.setRoot(path.Dir(root))
+
 			obj := f.newFsObjectWithInfo(remote, ResourceInfoResponse)
 			// return a Fs Limited to this object
 			return fs.NewLimited(f, obj), nil
